@@ -2,170 +2,167 @@ import SwiftUI
 import SwiftData
 
 struct ContentView: View {
-    var body: some View {
-        TabView {
-            // ===== Tab 1: Add Entry =====
-            AddEntryHomeView()
-                .tabItem {
-                    Image(systemName: "plus.circle")
-                    Text("Add Entry")
-                }
+    @State private var tab = 1 // Today هو الافتراضي
 
-            // ===== Tab 2: Results (History) =====
+    var body: some View {
+        TabView(selection: $tab) {
+            // Tab 0: Results (History)
             HistoryView()
                 .tabItem {
-                    Image(systemName: "list.bullet.rectangle")
-                    Text("Results")
+                    Label("Results", systemImage: "list.bullet.rectangle")
                 }
+                .tag(0)
 
-            // ===== Tab 3: User / Profile =====
+            // Tab 1: Today (Home)
+            TodayView()
+                .tabItem {
+                    Image(systemName: "circle.fill")
+                        .symbolRenderingMode(.monochrome)
+                    Text("Today")
+                }
+                .tag(1)
+
+            // Tab 2: User
             UserView()
                 .tabItem {
-                    Image(systemName: "person.crop.circle")
-                    Text("User")
+                    Label("User", systemImage: "person.crop.circle")
                 }
+                .tag(2)
         }
+        .tint(.blue) // لون التبويب المختار
     }
 }
 
-// MARK: - Home with horizontal slides (Daily / Weekly)
-private struct AddEntryHomeView: View {
-    @State private var page = 0
+// MARK: - Today (Home) screen
+struct TodayView: View {
+    @Environment(\.modelContext) private var context
+    @Query(sort: \Measurement.date, order: .reverse, animation: .default)
+    private var items: [Measurement]
+
+    @State private var weightText = ""
+    @FocusState private var focused: Bool
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 16) {
-                Text("My Measurements")
-                    .font(.title2).bold()
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.horizontal, 16)
-                    .padding(.top, 8)
+            VStack(spacing: 24) {
+                Spacer(minLength: 8)
 
-                // Slides
-                TabView(selection: $page) {
-                    EntrySlideCard(
-                        title: "Daily Entry",
-                        subtitle: "Quickly log today's weight",
-                        systemImage: "scalemass",
-                        tint: .blue,
-                        destination: AnyView(DailyEntryView())
-                    )
-                    .tag(0)
-
-                    EntrySlideCard(
-                        title: "Weekly Entry",
-                        subtitle: "Log waist, hips, arms, thighs, chest and weight",
-                        systemImage: "calendar",
-                        tint: .green,
-                        destination: AnyView(WeeklyEntryView())
-                    )
-                    .tag(1)
-                }
-                .tabViewStyle(.page(indexDisplayMode: .never))
-                .frame(height: 210)
-                .padding(.horizontal, 8)
-
-                // Dots
-                HStack(spacing: 8) {
-                    ForEach(0..<2, id: \.self) { i in
-                        Circle()
-                            .fill(i == page ? Color.primary : Color.secondary.opacity(0.35))
-                            .frame(width: i == page ? 10 : 8, height: i == page ? 10 : 8)
-                            .animation(.easeInOut(duration: 0.2), value: page)
-                            .onTapGesture { withAnimation { page = i } }
+                // دائرة زرقاء لطيفة
+                ZStack {
+                    Circle()
+                        .fill(Color.blue.opacity(0.15))
+                        .frame(width: 160, height: 160)
+                    VStack(spacing: 6) {
+                        Text("Today")
+                            .font(.headline)
+                            .foregroundColor(.blue)
+                        Text(Date(), style: .date)
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                        if let last = items.first?.weight {
+                            Text("Last: \(String(format: "%.1f", last)) kg")
+                                .font(.footnote)
+                                .foregroundColor(.secondary)
+                        }
                     }
                 }
-                .padding(.bottom, 8)
 
-                Spacer(minLength: 0)
+                // إدخال الوزن السريع
+                VStack(spacing: 12) {
+                    HStack {
+                        Text("Weight")
+                        Spacer()
+                        HStack(spacing: 6) {
+                            TextField("", text: $weightText)
+                                .keyboardType(.decimalPad)
+                                .multilineTextAlignment(.trailing)
+                                .focused($focused)
+                                .onChange(of: weightText) { _, new in
+                                    weightText = numericFiltered(new)
+                                }
+                            Text("kg").foregroundColor(.secondary)
+                        }
+                        .padding(.horizontal, 12).padding(.vertical, 10)
+                        .background(
+                            RoundedRectangle(cornerRadius: 10)
+                                .stroke(Color.gray.opacity(0.35), lineWidth: 1)
+                        )
+                        .frame(minWidth: 140)
+                    }
+
+                    Button {
+                        saveTodayWeight()
+                    } label: {
+                        Text("Log Weight")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(weightText.isEmpty)
+                }
+                .padding(.horizontal, 20)
+
+                // روابط سريعة (اختياريتين)
+                HStack(spacing: 12) {
+                    NavigationLink {
+                        DailyEntryView()
+                    } label: {
+                        Label("Daily Entry", systemImage: "sun.max.fill")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+
+                    NavigationLink {
+                        WeeklyEntryView()
+                    } label: {
+                        Label("Weekly Entry", systemImage: "calendar.badge.plus")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                }
+                .padding(.horizontal, 20)
+
+                Spacer()
             }
-        }
-    }
-}
-
-private struct EntrySlideCard: View {
-    let title: String
-    let subtitle: String
-    let systemImage: String
-    let tint: Color
-    let destination: AnyView
-
-    var body: some View {
-        NavigationLink {
-            destination
-        } label: {
-            ZStack {
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(LinearGradient(
-                        colors: [tint.opacity(0.18), Color(.secondarySystemBackground)],
-                        startPoint: .topLeading, endPoint: .bottomTrailing
-                    ))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 18)
-                            .stroke(.secondary.opacity(0.15), lineWidth: 1)
-                    )
-
-                HStack(spacing: 16) {
-                    ZStack {
-                        Circle().fill(tint.opacity(0.18)).frame(width: 64, height: 64)
-                        Image(systemName: systemImage)
-                            .font(.system(size: 26, weight: .semibold))
-                            .foregroundStyle(tint)
-                    }
-
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(title).font(.headline)
-                        Text(subtitle).font(.subheadline).foregroundStyle(.secondary).lineLimit(2)
-                    }
+            .navigationTitle("Today")
+            .toolbar {
+                ToolbarItemGroup(placement: .keyboard) {
                     Spacer()
-                    Image(systemName: "chevron.right").font(.footnote).foregroundStyle(.tertiary)
+                    Button("Done") { focused = false }
                 }
-                .padding(18)
             }
-            .frame(height: 200)
-            .padding(.horizontal, 8)
-        }
-        .buttonStyle(.plain)
-    }
-}
-
-// MARK: - Reusable UI Pieces used by entry screens
-struct SectionHeader: View {
-    let title: String
-    init(_ title: String) { self.title = title }
-    var body: some View {
-        Text(title)
-            .font(.subheadline).fontWeight(.semibold)
-            .foregroundStyle(.secondary)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.top, 4)
-    }
-}
-
-struct BoxedNumberRow: View {
-    let label: String
-    @Binding var text: String
-
-    var body: some View {
-        HStack(alignment: .center) {
-            Text(label)
-            Spacer(minLength: 12)
-            ZStack {
-                RoundedRectangle(cornerRadius: 10)
-                    .stroke(.secondary.opacity(0.35), lineWidth: 1)
-                    .background(
-                        RoundedRectangle(cornerRadius: 10)
-                            .fill(Color(.systemBackground))
-                    )
-                TextField("", text: $text)
-                    .keyboardType(.decimalPad)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled(true)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 8)
-                    .multilineTextAlignment(.trailing)
-            }
-            .frame(maxWidth: 220, minHeight: 40)
         }
     }
+
+    // MARK: - Helpers
+    private func numericFiltered(_ s: String) -> String {
+        let allowed = "0123456789.,"
+        var filtered = s.filter { allowed.contains($0) }
+        filtered = filtered.replacingOccurrences(of: ",", with: ".")
+        // نقطة واحدة فقط
+        let parts = filtered.split(separator: ".", maxSplits: 2, omittingEmptySubsequences: false)
+        if parts.count > 2 {
+            filtered = parts[0] + "." + parts[1]
+        }
+        return String(filtered.prefix(8))
+    }
+
+    private func saveTodayWeight() {
+        guard let w = Double(weightText) else { return }
+        let today = Calendar.current.startOfDay(for: Date())
+
+        if let existing = items.first(where: {
+            Calendar.current.isDate($0.date, inSameDayAs: today)
+        }) {
+            existing.weight = w
+        } else {
+            let m = Measurement(date: today, unit: "cm", weight: w, notes: "Quick log")
+            context.insert(m)
+        }
+
+        try? context.save()
+        focused = false
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        weightText = ""
+    }
 }
+
