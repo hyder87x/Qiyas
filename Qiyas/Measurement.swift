@@ -5,45 +5,42 @@ import SwiftData
 final class Measurement {
     @Attribute(.unique) var id: UUID
     var date: Date
-    var unit: String        // "cm" أو "in"
-    // القياسات الأساسية
-    var waist: Double?      // البطن/الخصر
-    var hips: Double?       // الورك
-    var chest: Double?      // الصدر
-    var weight: Double?     // الوزن (اختياري: بالكيلو)
-    // يمين/يسار
-    var rightArm: Double?
+    var unit: String          // "cm" أو "in" مثلًا
+    var weight: Double?       // يومي
+    var chest: Double?
+    var hips: Double?
+    var waist: Double?
     var leftArm: Double?
-    var rightThigh: Double?
+    var rightArm: Double?
     var leftThigh: Double?
-    // ملاحظات
+    var rightThigh: Double?
     var notes: String?
 
     init(
         id: UUID = UUID(),
-        date: Date = .now,
+        date: Date = .init(),
         unit: String = "cm",
-        waist: Double? = nil,
-        hips: Double? = nil,
-        chest: Double? = nil,
         weight: Double? = nil,
-        rightArm: Double? = nil,
+        chest: Double? = nil,
+        hips: Double? = nil,
+        waist: Double? = nil,
         leftArm: Double? = nil,
-        rightThigh: Double? = nil,
+        rightArm: Double? = nil,
         leftThigh: Double? = nil,
+        rightThigh: Double? = nil,
         notes: String? = nil
     ) {
         self.id = id
         self.date = date
         self.unit = unit
-        self.waist = waist
-        self.hips = hips
-        self.chest = chest
         self.weight = weight
-        self.rightArm = rightArm
+        self.chest = chest
+        self.hips = hips
+        self.waist = waist
         self.leftArm = leftArm
-        self.rightThigh = rightThigh
+        self.rightArm = rightArm
         self.leftThigh = leftThigh
+        self.rightThigh = rightThigh
         self.notes = notes
     }
 }

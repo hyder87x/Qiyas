@@ -3,18 +3,19 @@ import SwiftData
 
 struct WeeklyEntryView: View {
     @Environment(\.modelContext) private var context
-    @AppStorage("unit") private var unit = "cm"
+    @Environment(\.dismiss) private var dismiss
 
     @State private var date = Date()
+    @State private var unit = "cm"
 
-    @State private var waist = ""
-    @State private var hips = ""
-    @State private var chest = ""
     @State private var weight = ""
-    @State private var rightArm = ""
+    @State private var chest = ""
+    @State private var hips = ""
+    @State private var waist = ""
     @State private var leftArm = ""
-    @State private var rightThigh = ""
+    @State private var rightArm = ""
     @State private var leftThigh = ""
+    @State private var rightThigh = ""
     @State private var notes = ""
 
     @FocusState private var focused: Bool
@@ -45,14 +46,14 @@ struct WeeklyEntryView: View {
 
                 SectionHeader("Body Measurements")
                 Group {
-                    BoxedNumberRow(label: "Waist", text: $waist)
-                    BoxedNumberRow(label: "Hips", text: $hips)
-                    BoxedNumberRow(label: "Chest", text: $chest)
-                    BoxedNumberRow(label: "Weight (kg)", text: $weight)
-                    BoxedNumberRow(label: "Right Arm", text: $rightArm)
-                    BoxedNumberRow(label: "Left Arm", text: $leftArm)
-                    BoxedNumberRow(label: "Right Thigh", text: $rightThigh)
-                    BoxedNumberRow(label: "Left Thigh", text: $leftThigh)
+                    row("Weight", text: $weight, suffix: "kg")
+                    row("Chest", text: $chest)
+                    row("Hips", text: $hips)
+                    row("Waist", text: $waist)
+                    row("Left Arm", text: $leftArm)
+                    row("Right Arm", text: $rightArm)
+                    row("Left Thigh", text: $leftThigh)
+                    row("Right Thigh", text: $rightThigh)
                 }
 
                 HStack(alignment: .center) {
@@ -60,16 +61,12 @@ struct WeeklyEntryView: View {
                     Spacer(minLength: 12)
                     ZStack {
                         RoundedRectangle(cornerRadius: 10)
-                            .stroke(.secondary.opacity(0.35), lineWidth: 1)
-                            .background(
-                                RoundedRectangle(cornerRadius: 10)
-                                    .fill(Color(.systemBackground))
-                            )
+                            .stroke(Color.gray.opacity(0.35), lineWidth: 1)
+                            .background(RoundedRectangle(cornerRadius: 10).fill(Color(UIColor.systemBackground)))
                         TextField("", text: $notes, axis: .vertical)
                             .textInputAutocapitalization(.never)
                             .autocorrectionDisabled(true)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 8)
+                            .padding(.horizontal, 10).padding(.vertical, 8)
                             .multilineTextAlignment(.trailing)
                             .focused($focused)
                     }
@@ -95,32 +92,62 @@ struct WeeklyEntryView: View {
         .scrollDismissesKeyboard(.interactively)
     }
 
-    private func toDouble(_ s: String) -> Double? {
-        Double(s.replacingOccurrences(of: ",", with: ".").trimmingCharacters(in: .whitespaces))
+    private func row(_ title: String, text: Binding<String>, suffix: String? = nil) -> some View {
+        HStack(alignment: .center) {
+            Text(title)
+            Spacer(minLength: 12)
+            HStack(spacing: 6) {
+                TextField("", text: text)
+                    .keyboardType(.decimalPad)
+                    .multilineTextAlignment(.trailing)
+                    .focused($focused)
+                    .onChange(of: text.wrappedValue) { _, newValue in
+                        let filtered = newValue
+                            .replacingOccurrences(of: ",", with: ".")
+                            .filter { "0123456789.".contains($0) }
+                        let parts = filtered.split(separator: ".", maxSplits: 2, omittingEmptySubsequences: false)
+                        let sanitized = parts.count > 2 ? parts[0] + "." + parts[1] : Substring(filtered)
+                        text.wrappedValue = String(sanitized.prefix(8))
+                    }
+                if let s = suffix {
+                    Text(s).foregroundColor(.secondary)
+                }
+            }
+            .padding(.horizontal, 10).padding(.vertical, 8)
+            .background(RoundedRectangle(cornerRadius: 10).stroke(Color.gray.opacity(0.35), lineWidth: 1))
+            .frame(maxWidth: 220, minHeight: 40)
+        }
+    }
+
+    private func parse(_ s: String) -> Double? {
+        let cleaned = s.replacingOccurrences(of: ",", with: ".")
+            .filter { "0123456789.".contains($0) }
+        if cleaned.filter({ $0 == "." }).count > 1 { return nil }
+        return Double(cleaned)
     }
 
     private func saveAndClear() {
         let m = Measurement(
             date: date,
             unit: unit,
-            waist: toDouble(waist),
-            hips: toDouble(hips),
-            chest: toDouble(chest),
-            weight: toDouble(weight),
-            rightArm: toDouble(rightArm),
-            leftArm: toDouble(leftArm),
-            rightThigh: toDouble(rightThigh),
-            leftThigh: toDouble(leftThigh),
+            weight: parse(weight),
+            chest: parse(chest),
+            hips: parse(hips),
+            waist: parse(waist),
+            leftArm: parse(leftArm),
+            rightArm: parse(rightArm),
+            leftThigh: parse(leftThigh),
+            rightThigh: parse(rightThigh),
             notes: notes.isEmpty ? nil : notes
         )
         context.insert(m)
         try? context.save()
+        focused = false
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
-        // clear
-        [ $waist, $hips, $chest, $weight, $rightArm, $leftArm, $rightThigh, $leftThigh ]
-            .forEach { $0.wrappedValue = "" }
+
+        [ $weight, $chest, $hips, $waist, $leftArm, $rightArm, $leftThigh, $rightThigh ].forEach { $0.wrappedValue = "" }
         notes = ""
         date = Date()
-        focused = false
     }
 }
+
