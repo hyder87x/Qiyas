@@ -3,40 +3,53 @@ import SwiftData
 
 @Model
 final class Measurement {
-    @Attribute(.unique) var id: UUID
+    // متى تم الإدخال
     var date: Date
-    var unit: String          // "cm" أو "in" مثلًا
-    var weight: Double?       // يومي
-    var chest: Double?
-    var hips: Double?
+
+    // وحدة القياس (غالبًا "cm")
+    var unit: String
+
+    // وزن (كجم)
+    var weight: Double?
+
+    // محيطات
     var waist: Double?
+    var hips: Double?
+    var chest: Double?
+    var neck: Double?          // NEW
+
+    // أذرع
     var leftArm: Double?
     var rightArm: Double?
+
+    // أفخاذ
     var leftThigh: Double?
     var rightThigh: Double?
+
+    // ملاحظات
     var notes: String?
 
     init(
-        id: UUID = UUID(),
-        date: Date = .init(),
+        date: Date = Date(),
         unit: String = "cm",
         weight: Double? = nil,
-        chest: Double? = nil,
-        hips: Double? = nil,
         waist: Double? = nil,
+        hips: Double? = nil,
+        chest: Double? = nil,
+        neck: Double? = nil,
         leftArm: Double? = nil,
         rightArm: Double? = nil,
         leftThigh: Double? = nil,
         rightThigh: Double? = nil,
         notes: String? = nil
     ) {
-        self.id = id
         self.date = date
         self.unit = unit
         self.weight = weight
-        self.chest = chest
-        self.hips = hips
         self.waist = waist
+        self.hips = hips
+        self.chest = chest
+        self.neck = neck
         self.leftArm = leftArm
         self.rightArm = rightArm
         self.leftThigh = leftThigh

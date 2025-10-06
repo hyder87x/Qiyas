@@ -8,146 +8,163 @@ struct WeeklyEntryView: View {
     @State private var date = Date()
     @State private var unit = "cm"
 
+    // نصوص الإدخال
     @State private var weight = ""
-    @State private var chest = ""
-    @State private var hips = ""
-    @State private var waist = ""
-    @State private var leftArm = ""
-    @State private var rightArm = ""
-    @State private var leftThigh = ""
-    @State private var rightThigh = ""
-    @State private var notes = ""
+    @State private var waist  = ""
+    @State private var hips   = ""
+    @State private var chest  = ""
+    @State private var neck   = ""     // NEW
+    @State private var lArm   = ""
+    @State private var rArm   = ""
+    @State private var lThigh = ""
+    @State private var rThigh = ""
+    @State private var notes  = ""
 
     @FocusState private var focused: Bool
 
+    private let units = ["cm", "in"]
+
     var body: some View {
-        ScrollView {
-            LazyVStack(spacing: 18) {
-                SectionHeader("Date & Unit")
+        NavigationStack {
+            Form {
+                SectionHeaderView("Date")
+                DatePicker("", selection: $date, displayedComponents: .date)
+                    .datePickerStyle(.compact)
 
-                HStack {
-                    Text("Date")
-                    Spacer(minLength: 12)
-                    DatePicker("", selection: $date, displayedComponents: .date)
-                        .datePickerStyle(.compact)
-                        .labelsHidden()
+                SectionHeaderView("Unit")
+                Picker("Unit", selection: $unit) {
+                    ForEach(units, id: \.self) { Text($0).tag($0) }
+                }
+                .pickerStyle(.segmented)
+                .padding(.bottom, 6)
+
+                SectionHeaderView("Body")
+                VStack(spacing: 10) {
+                    NumberRow(label: "Weight (kg)", text: $weight)
+                    NumberRow(label: "Waist (\(unit))", text: $waist)
+                    NumberRow(label: "Hips (\(unit))",  text: $hips)
+                    NumberRow(label: "Chest (\(unit))", text: $chest)
+                    NumberRow(label: "Neck (\(unit))",  text: $neck)   // NEW
                 }
 
-                HStack {
-                    Text("Unit")
-                    Spacer(minLength: 12)
-                    Picker("", selection: $unit) {
-                        Text("cm").tag("cm")
-                        Text("in").tag("in")
-                    }
-                    .pickerStyle(.segmented)
-                    .frame(maxWidth: 180)
+                SectionHeaderView("Arms")
+                VStack(spacing: 10) {
+                    NumberRow(label: "Left Arm (\(unit))",  text: $lArm)
+                    NumberRow(label: "Right Arm (\(unit))", text: $rArm)
                 }
 
-                SectionHeader("Body Measurements")
-                Group {
-                    row("Weight", text: $weight, suffix: "kg")
-                    row("Chest", text: $chest)
-                    row("Hips", text: $hips)
-                    row("Waist", text: $waist)
-                    row("Left Arm", text: $leftArm)
-                    row("Right Arm", text: $rightArm)
-                    row("Left Thigh", text: $leftThigh)
-                    row("Right Thigh", text: $rightThigh)
+                SectionHeaderView("Thighs")
+                VStack(spacing: 10) {
+                    NumberRow(label: "Left Thigh (\(unit))",  text: $lThigh)
+                    NumberRow(label: "Right Thigh (\(unit))", text: $rThigh)
                 }
 
-                HStack(alignment: .center) {
-                    Text("Notes")
-                    Spacer(minLength: 12)
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 10)
-                            .stroke(Color.gray.opacity(0.35), lineWidth: 1)
-                            .background(RoundedRectangle(cornerRadius: 10).fill(Color(UIColor.systemBackground)))
-                        TextField("", text: $notes, axis: .vertical)
-                            .textInputAutocapitalization(.never)
-                            .autocorrectionDisabled(true)
-                            .padding(.horizontal, 10).padding(.vertical, 8)
-                            .multilineTextAlignment(.trailing)
-                            .focused($focused)
-                    }
-                    .frame(maxWidth: 240, minHeight: 40)
-                }
-
-                Button(action: saveAndClear) {
-                    Text("Save Weekly Entry")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.borderedProminent)
+                SectionHeaderView("Note")
+                TextField("Optional note", text: $notes, axis: .vertical)
+                    .lineLimit(1...3)
             }
-            .padding(16)
-        }
-        .navigationTitle("Weekly Entry")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItemGroup(placement: .keyboard) {
-                Spacer()
-                Button("Done") { focused = false }
-            }
-        }
-        .scrollDismissesKeyboard(.interactively)
-    }
-
-    private func row(_ title: String, text: Binding<String>, suffix: String? = nil) -> some View {
-        HStack(alignment: .center) {
-            Text(title)
-            Spacer(minLength: 12)
-            HStack(spacing: 6) {
-                TextField("", text: text)
-                    .keyboardType(.decimalPad)
-                    .multilineTextAlignment(.trailing)
-                    .focused($focused)
-                    .onChange(of: text.wrappedValue) { _, newValue in
-                        let filtered = newValue
-                            .replacingOccurrences(of: ",", with: ".")
-                            .filter { "0123456789.".contains($0) }
-                        let parts = filtered.split(separator: ".", maxSplits: 2, omittingEmptySubsequences: false)
-                        let sanitized = parts.count > 2 ? parts[0] + "." + parts[1] : Substring(filtered)
-                        text.wrappedValue = String(sanitized.prefix(8))
-                    }
-                if let s = suffix {
-                    Text(s).foregroundColor(.secondary)
+            .navigationTitle("Weekly Entry")
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Save") { save() }
+                        .fontWeight(.semibold)
+                }
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("Done") { focused = false }
                 }
             }
-            .padding(.horizontal, 10).padding(.vertical, 8)
-            .background(RoundedRectangle(cornerRadius: 10).stroke(Color.gray.opacity(0.35), lineWidth: 1))
-            .frame(maxWidth: 220, minHeight: 40)
         }
     }
 
-    private func parse(_ s: String) -> Double? {
-        let cleaned = s.replacingOccurrences(of: ",", with: ".")
-            .filter { "0123456789.".contains($0) }
-        if cleaned.filter({ $0 == "." }).count > 1 { return nil }
-        return Double(cleaned)
-    }
-
-    private func saveAndClear() {
+    // حفظ السجل
+    private func save() {
         let m = Measurement(
             date: date,
             unit: unit,
             weight: parse(weight),
-            chest: parse(chest),
-            hips: parse(hips),
-            waist: parse(waist),
-            leftArm: parse(leftArm),
-            rightArm: parse(rightArm),
-            leftThigh: parse(leftThigh),
-            rightThigh: parse(rightThigh),
+            waist:  parse(waist),
+            hips:   parse(hips),
+            chest:  parse(chest),
+            neck:   parse(neck),      // NEW
+            leftArm:   parse(lArm),
+            rightArm:  parse(rArm),
+            leftThigh: parse(lThigh),
+            rightThigh: parse(rThigh),
             notes: notes.isEmpty ? nil : notes
         )
+
         context.insert(m)
         try? context.save()
-        focused = false
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        dismiss()
+    }
 
-        [ $weight, $chest, $hips, $waist, $leftArm, $rightArm, $leftThigh, $rightThigh ].forEach { $0.wrappedValue = "" }
-        notes = ""
-        date = Date()
+    private func parse(_ s: String) -> Double? {
+        let cleaned = s.replacingOccurrences(of: ",", with: ".")
+        guard let v = Double(cleaned) else { return nil }
+        return v
+    }
+}
+
+//
+// MARK: - UI محلية داخل نفس الملف (ما تحتاج تعتمد على ملفات ثانية)
+//
+
+private struct SectionHeaderView: View {
+    let text: String
+    init(_ text: String) { self.text = text }
+    var body: some View {
+        Text(text.uppercased())
+            .font(.caption)
+            .foregroundColor(.secondary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.top, 4)
+    }
+}
+
+private struct NumberRow: View {
+    let label: String
+    @Binding var text: String
+    @FocusState private var focused: Bool
+
+    var body: some View {
+        HStack {
+            Text(label)
+            Spacer(minLength: 12)
+            ZStack {
+                RoundedRectangle(cornerRadius: 10)
+                    .stroke(Color.gray.opacity(0.35), lineWidth: 1)
+                    .background(
+                        RoundedRectangle(cornerRadius: 10)
+                            .fill(Color(UIColor.systemBackground))
+                    )
+                TextField("", text: $text)
+                    .keyboardType(.decimalPad)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled(true)
+                    .multilineTextAlignment(.trailing)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 8)
+                    .focused($focused)
+                    .onChange(of: text) { new in
+                        text = numericFiltered(new)
+                    }
+            }
+            .frame(maxWidth: 220, minHeight: 40)
+        }
+    }
+
+    private func numericFiltered(_ s: String) -> String {
+        let allowed = "0123456789.,"
+        var filtered = s.filter { allowed.contains($0) }
+        filtered = filtered.replacingOccurrences(of: ",", with: ".")
+        // نقطة واحدة فقط
+        let parts = filtered.split(separator: ".", maxSplits: 2, omittingEmptySubsequences: false)
+        if parts.count > 2 {
+            filtered = parts[0] + "." + parts[1]
+        }
+        return String(filtered.prefix(8))
     }
 }
 
