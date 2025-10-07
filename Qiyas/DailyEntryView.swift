@@ -13,14 +13,12 @@ struct DailyEntryView: View {
         NavigationStack {
             ScrollView {
                 LazyVStack(spacing: 20) {
-                    // Date
                     SectionHeader("Date")
                     DatePicker("", selection: $date, displayedComponents: .date)
                         .datePickerStyle(.compact)
                         .labelsHidden()
                         .frame(maxWidth: .infinity, alignment: .trailing)
 
-                    // Weight
                     SectionHeader("Weight")
                     HStack {
                         Text("Weight")
@@ -35,8 +33,7 @@ struct DailyEntryView: View {
                                 }
                             Text("kg").foregroundColor(.secondary)
                         }
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 8)
+                        .padding(.horizontal, 10).padding(.vertical, 8)
                         .background(
                             RoundedRectangle(cornerRadius: 10)
                                 .stroke(Color.gray.opacity(0.35), lineWidth: 1)
@@ -44,10 +41,8 @@ struct DailyEntryView: View {
                         .frame(minWidth: 140)
                     }
 
-                    // Save
                     Button(action: saveAndClose) {
-                        Text("Save")
-                            .frame(maxWidth: .infinity)
+                        Text("Save").frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.borderedProminent)
                     .disabled(weight.trimmingCharacters(in: .whitespaces).isEmpty)
@@ -57,34 +52,21 @@ struct DailyEntryView: View {
             .navigationTitle("Daily Entry")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                // شريط أدوات يظهر مع الكيبورد وفيه زر أيقونة سريع + زر Done
                 ToolbarItemGroup(placement: .keyboard) {
-                    Button {
-                        focused = false
-                    } label: {
-                        Image(systemName: "keyboard.chevron.compact.down")
-                            .font(.title3)
-                            .accessibilityLabel("Hide Keyboard")
-                    }
-
                     Spacer()
-
                     Button("Done") { focused = false }
-                        .fontWeight(.semibold)
                 }
             }
         }
     }
 
-    // MARK: - Helpers
     private func numericFiltered(_ s: String) -> String {
         let allowed = "0123456789.,"
         var filtered = s.filter { allowed.contains($0) }
         filtered = filtered.replacingOccurrences(of: ",", with: ".")
-        // اسمح بنقطة واحدة فقط
         let parts = filtered.split(separator: ".", maxSplits: 2, omittingEmptySubsequences: false)
         if parts.count > 2 { filtered = parts[0] + "." + parts[1] }
-        return String(filtered.prefix(8)) // حد للطول
+        return String(filtered.prefix(8))
     }
 
     private func toDouble(_ s: String) -> Double? {
@@ -93,8 +75,8 @@ struct DailyEntryView: View {
 
     private func saveAndClose() {
         guard let w = toDouble(weight) else { return }
-        let m = Measurement(date: date, unit: "cm", weight: w)
-        context.insert(m)
+        let entry = BodyEntry(date: date, unit: "cm", weight: w)
+        context.insert(entry)
         try? context.save()
         focused = false
         UIImpactFeedbackGenerator(style: .light).impactOccurred()

@@ -1,60 +1,26 @@
 import SwiftUI
-import Foundation
 
-// MARK: - Types
+// MARK: - Global types / helpers shared by views
 
-public enum Sex: String, Codable, CaseIterable {
-    case male, female
-}
+public enum Sex: String, Codable, CaseIterable, Identifiable {
+    case male
+    case female
 
-// MARK: - Health helpers
+    public var id: String { rawValue }
 
-/// BMI = weight(kg) / (height(m)^2)
-public func bmi(weightKg: Double?, heightCm: Double?) -> Double? {
-    guard let w = weightKg, let h = heightCm, w > 0, h > 0 else { return nil }
-    let meters = h / 100.0
-    return w / (meters * meters)
-}
-
-/// Navy Body Fat %
-/// male:  495 / (1.0324 - 0.19077*log10(waist - neck) + 0.15456*log10(height)) - 450
-/// female:495 / (1.29579 - 0.35004*log10(waist + hip - neck) + 0.22100*log10(height)) - 450
-public func navyBodyFatPercent(
-    sex: Sex,
-    heightCm: Double?,
-    neckCm: Double?,
-    waistCm: Double?,
-    hipCm: Double?
-) -> Double? {
-    guard
-        let h = heightCm, let n = neckCm, let w = waistCm,
-        h > 0, n > 0, w > 0
-    else { return nil }
-
-    let log10 = { (x: Double) -> Double? in x > 0 ? Foundation.log10(x) : nil }
-
-    switch sex {
-    case .male:
-        guard let ln = log10(w - n), let lh = log10(h) else { return nil }
-        let density = 1.0324 - 0.19077 * ln + 0.15456 * lh
-        let bf = 495.0 / density - 450.0
-        return bf.isFinite ? bf : nil
-
-    case .female:
-        guard let hip = hipCm, hip > 0,
-              let ln = log10(w + hip - n),
-              let lh = log10(h) else { return nil }
-        let density = 1.29579 - 0.35004 * ln + 0.22100 * lh
-        let bf = 495.0 / density - 450.0
-        return bf.isFinite ? bf : nil
+    public var title: String {
+        switch self {
+        case .male:   return "Male"
+        case .female: return "Female"
+        }
     }
 }
 
-// MARK: - Shared UI
-
+// Section title used in multiple screens
 public struct SectionHeader: View {
-    public var title: String
+    public let title: String
     public init(_ title: String) { self.title = title }
+
     public var body: some View {
         Text(title.uppercased())
             .font(.caption)
@@ -64,6 +30,7 @@ public struct SectionHeader: View {
     }
 }
 
+// Reusable right-aligned numeric text field row
 public struct BoxedNumberRow: View {
     public let label: String
     @Binding public var text: String
@@ -71,11 +38,11 @@ public struct BoxedNumberRow: View {
 
     public init(label: String, text: Binding<String>) {
         self.label = label
-        self._text = text
+        self._text  = text
     }
 
     public var body: some View {
-        HStack(alignment: .center) {
+        HStack {
             Text(label)
             Spacer(minLength: 12)
             ZStack {
@@ -85,7 +52,6 @@ public struct BoxedNumberRow: View {
                         RoundedRectangle(cornerRadius: 10)
                             .fill(Color(UIColor.systemBackground))
                     )
-
                 TextField("", text: $text)
                     .keyboardType(.decimalPad)
                     .textInputAutocapitalization(.never)
@@ -94,9 +60,24 @@ public struct BoxedNumberRow: View {
                     .padding(.horizontal, 10)
                     .padding(.vertical, 8)
                     .focused($focused)
+                    .onChange(of: text) { new in
+                        text = numericFiltered(new)
+                    }
             }
             .frame(maxWidth: 220, minHeight: 40)
         }
+    }
+
+    private func numericFiltered(_ s: String) -> String {
+        let allowed = "0123456789.,"
+        var filtered = s.filter { allowed.contains($0) }
+        filtered = filtered.replacingOccurrences(of: ",", with: ".")
+        // نقطة واحدة فقط
+        let parts = filtered.split(
+            separator: ".", maxSplits: 2, omittingEmptySubsequences: false
+        )
+        if parts.count > 2 { filtered = parts[0] + "." + parts[1] }
+        return String(filtered.prefix(8))
     }
 }
 

@@ -5,138 +5,168 @@ struct WeeklyEntryView: View {
     @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
 
+    // لو عندك إعدادات لغة/وحدات، غيّر القيمة الابتدائية هنا
     @State private var date = Date()
     @State private var unit = "cm"
 
-    // نصوص الإدخال
-    @State private var weight = ""
+    // أهم 4
+    @State private var weight = ""   // kg دائماً
     @State private var waist  = ""
     @State private var hips   = ""
-    @State private var chest  = ""
-    @State private var neck   = ""     // NEW
-    @State private var lArm   = ""
-    @State private var rArm   = ""
-    @State private var lThigh = ""
-    @State private var rThigh = ""
-    @State private var notes  = ""
+    @State private var neck   = ""
+
+    // الأذرع (قابلة للطي)
+    @State private var showArms = false
+    @State private var leftArm = ""
+    @State private var rightArm = ""
+    @State private var leftForearm = ""
+    @State private var rightForearm = ""
+
+    // الأرجل (قابلة للطي)
+    @State private var showLegs = false
+    @State private var leftThigh = ""
+    @State private var rightThigh = ""
+    @State private var leftKnee = ""
+    @State private var rightKnee = ""
+
+    // أخريات
+    @State private var chest = ""
+    @State private var shoulder = ""
+    @State private var notes = ""
 
     @FocusState private var focused: Bool
-
-    private let units = ["cm", "in"]
+    private let lengthUnits = ["cm", "in"]
 
     var body: some View {
         NavigationStack {
             Form {
-                SectionHeaderView("Date")
-                DatePicker("", selection: $date, displayedComponents: .date)
-                    .datePickerStyle(.compact)
-
-                SectionHeaderView("Unit")
-                Picker("Unit", selection: $unit) {
-                    ForEach(units, id: \.self) { Text($0).tag($0) }
+                // التاريخ + الوحدة
+                Section {
+                    DatePicker("Date", selection: $date, displayedComponents: .date)
+                    Picker("Length unit", selection: $unit) {
+                        ForEach(lengthUnits, id: \.self) { Text($0).tag($0) }
+                    }
+                    .pickerStyle(.segmented)
                 }
-                .pickerStyle(.segmented)
-                .padding(.bottom, 6)
 
-                SectionHeaderView("Body")
-                VStack(spacing: 10) {
-                    NumberRow(label: "Weight (kg)", text: $weight)
+                // أهم 4
+                Section("Primary") {
+                    NumberRow(label: "Weight (kg)", text: $weight, keyboard: .decimalPad)
                     NumberRow(label: "Waist (\(unit))", text: $waist)
                     NumberRow(label: "Hips (\(unit))",  text: $hips)
-                    NumberRow(label: "Chest (\(unit))", text: $chest)
-                    NumberRow(label: "Neck (\(unit))",  text: $neck)   // NEW
+                    NumberRow(label: "Neck (\(unit))",  text: $neck)
                 }
 
-                SectionHeaderView("Arms")
-                VStack(spacing: 10) {
-                    NumberRow(label: "Left Arm (\(unit))",  text: $lArm)
-                    NumberRow(label: "Right Arm (\(unit))", text: $rArm)
+                // الأذرع
+                Section {
+                    Toggle(isOn: $showArms.animation(.easeInOut)) {
+                        Label("Arms", systemImage: "chevron.down.circle\(showArms ? ".fill" : "")")
+                    }
+                    if showArms {
+                        NumberRow(label: "Left Arm (\(unit))",  text: $leftArm)
+                        NumberRow(label: "Right Arm (\(unit))", text: $rightArm)
+                        NumberRow(label: "Left Forearm (\(unit))",  text: $leftForearm)
+                        NumberRow(label: "Right Forearm (\(unit))", text: $rightForearm)
+                    }
                 }
 
-                SectionHeaderView("Thighs")
-                VStack(spacing: 10) {
-                    NumberRow(label: "Left Thigh (\(unit))",  text: $lThigh)
-                    NumberRow(label: "Right Thigh (\(unit))", text: $rThigh)
+                // الأرجل
+                Section {
+                    Toggle(isOn: $showLegs.animation(.easeInOut)) {
+                        Label("Legs", systemImage: "chevron.down.circle\(showLegs ? ".fill" : "")")
+                    }
+                    if showLegs {
+                        NumberRow(label: "Left Thigh (\(unit))",  text: $leftThigh)
+                        NumberRow(label: "Right Thigh (\(unit))", text: $rightThigh)
+                        NumberRow(label: "Left Knee (\(unit))",  text: $leftKnee)
+                        NumberRow(label: "Right Knee (\(unit))", text: $rightKnee)
+                    }
                 }
 
-                SectionHeaderView("Note")
-                TextField("Optional note", text: $notes, axis: .vertical)
-                    .lineLimit(1...3)
+                // صدر / كتف
+                Section("Upper Body") {
+                    NumberRow(label: "Chest (\(unit))",    text: $chest)
+                    NumberRow(label: "Shoulder (\(unit))", text: $shoulder)
+                }
+
+                // ملاحظات + حفظ
+                Section {
+                    TextField("Notes (optional)", text: $notes, axis: .vertical)
+                        .lineLimit(1...3)
+
+                    Button {
+                        save()
+                    } label: {
+                        Text("Save")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(!canSave)
+                }
             }
             .navigationTitle("Weekly Entry")
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Save") { save() }
-                        .fontWeight(.semibold)
-                }
-                // ===== شريط أدوات الكيبورد: زر إخفاء + Done =====
                 ToolbarItemGroup(placement: .keyboard) {
-                    Button {
-                        focused = false
-                    } label: {
-                        Image(systemName: "keyboard.chevron.compact.down")
-                            .font(.title3)
-                            .accessibilityLabel("Hide Keyboard")
-                    }
-
                     Spacer()
-
                     Button("Done") { focused = false }
-                        .fontWeight(.semibold)
                 }
             }
         }
     }
 
-    // حفظ السجل
+    // MARK: - Validation
+    private var canSave: Bool {
+        // على الأقل واحد من الحقول الأساسية موجود
+        return parse(weight) != nil
+            || parse(waist) != nil
+            || parse(hips)  != nil
+            || parse(neck)  != nil
+    }
+
+    // MARK: - Actions
     private func save() {
-        let m = Measurement(
+        let entry = BodyEntry(
             date: date,
             unit: unit,
             weight: parse(weight),
             waist:  parse(waist),
             hips:   parse(hips),
-            chest:  parse(chest),
-            neck:   parse(neck),      // NEW
-            leftArm:   parse(lArm),
-            rightArm:  parse(rArm),
-            leftThigh: parse(lThigh),
-            rightThigh: parse(rThigh),
+            neck:   parse(neck),
+            leftArm:      parse(leftArm),
+            rightArm:     parse(rightArm),
+            leftForearm:  parse(leftForearm),
+            rightForearm: parse(rightForearm),
+            leftThigh:    parse(leftThigh),
+            rightThigh:   parse(rightThigh),
+            leftKnee:     parse(leftKnee),
+            rightKnee:    parse(rightKnee),
+            chest:        parse(chest),
+            shoulder:     parse(shoulder),
             notes: notes.isEmpty ? nil : notes
         )
 
-        context.insert(m)
+        context.insert(entry)
         try? context.save()
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
+        focused = false
         dismiss()
     }
 
     private func parse(_ s: String) -> Double? {
-        let cleaned = s.replacingOccurrences(of: ",", with: ".")
-        guard let v = Double(cleaned) else { return nil }
-        return v
+        let clean = s
+            .replacingOccurrences(of: ",", with: ".")
+            .filter { "0123456789.".contains($0) }
+        // نقطة واحدة فقط
+        if clean.filter({ $0 == "." }).count > 1 { return nil }
+        return Double(clean)
     }
 }
 
-//
-// MARK: - UI محلية داخل نفس الملف (ما تحتاج تعتمد على ملفات ثانية)
-//
-
-private struct SectionHeaderView: View {
-    let text: String
-    init(_ text: String) { self.text = text }
-    var body: some View {
-        Text(text.uppercased())
-            .font(.caption)
-            .foregroundColor(.secondary)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.top, 4)
-    }
-}
-
+// MARK: - Reusable Row (محلي داخل الملف)
 private struct NumberRow: View {
     let label: String
     @Binding var text: String
+    var keyboard: UIKeyboardType = .decimalPad
     @FocusState private var focused: Bool
 
     var body: some View {
@@ -146,12 +176,8 @@ private struct NumberRow: View {
             ZStack {
                 RoundedRectangle(cornerRadius: 10)
                     .stroke(Color.gray.opacity(0.35), lineWidth: 1)
-                    .background(
-                        RoundedRectangle(cornerRadius: 10)
-                            .fill(Color(UIColor.systemBackground))
-                    )
                 TextField("", text: $text)
-                    .keyboardType(.decimalPad)
+                    .keyboardType(keyboard)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled(true)
                     .multilineTextAlignment(.trailing)
@@ -159,23 +185,20 @@ private struct NumberRow: View {
                     .padding(.vertical, 8)
                     .focused($focused)
                     .onChange(of: text) { new in
-                        text = numericFiltered(new)
+                        text = filtered(new)
                     }
             }
             .frame(maxWidth: 220, minHeight: 40)
         }
     }
 
-    private func numericFiltered(_ s: String) -> String {
+    private func filtered(_ s: String) -> String {
         let allowed = "0123456789.,"
-        var filtered = s.filter { allowed.contains($0) }
-        filtered = filtered.replacingOccurrences(of: ",", with: ".")
-        // نقطة واحدة فقط
-        let parts = filtered.split(separator: ".", maxSplits: 2, omittingEmptySubsequences: false)
-        if parts.count > 2 {
-            filtered = parts[0] + "." + parts[1]
-        }
-        return String(filtered.prefix(8))
+        var f = s.filter { allowed.contains($0) }
+        f = f.replacingOccurrences(of: ",", with: ".")
+        let parts = f.split(separator: ".", maxSplits: 2, omittingEmptySubsequences: false)
+        if parts.count > 2 { f = parts[0] + "." + parts[1] }
+        return String(f.prefix(8))
     }
 }
 

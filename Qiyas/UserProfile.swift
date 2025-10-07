@@ -1,33 +1,23 @@
-import Foundation
+import SwiftUI
 import SwiftData
 
 @Model
-final class UserProfile {
-    var name: String
-    var age: Int?
-    var heightCm: Double?          // الطول بالسنتيمتر
+public final class UserProfile {
+    public var name: String
+    public var age: Int?
+    public var heightCm: Double?
+    public var sex: Sex   // Sex معرّفة في UIShared.swift فقط
 
-    // نخزن الجنس كبوليان (مريح لِـ SwiftData)
-    private var isFemaleStorage: Bool
-
-    init(
+    public init(
         name: String = "",
         age: Int? = nil,
         heightCm: Double? = nil,
-        sex: Sex = .male            // enum Sex موجود في UIShared.swift
+        sex: Sex = .male
     ) {
         self.name = name
         self.age = age
         self.heightCm = heightCm
-        self.isFemaleStorage = (sex == .female)
-    }
-
-    // واجهة مريحة لباقي الكود: نتعامل مع Sex بدل Bool
-    // مهم: نميزها كخاصية غير محفوظة في SwiftData
-    @Transient
-    var sex: Sex {
-        get { isFemaleStorage ? .female : .male }
-        set { isFemaleStorage = (newValue == .female) }
+        self.sex = sex
     }
 }
 

@@ -39,7 +39,7 @@ struct MeView: View {
 
                     NavigationLink {
                         StaticTextScreen(title: "About",
-                                         text: "Qiyas – track your body measurements. Version 0.1")
+                                         text: "Qiyas – track your body BodyEntrys. Version 0.1")
                     } label: {
                         Label("About", systemImage: "info.circle")
                     }
