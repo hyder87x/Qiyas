@@ -57,9 +57,20 @@ struct DailyEntryView: View {
             .navigationTitle("Daily Entry")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                // شريط أدوات يظهر مع الكيبورد وفيه زر أيقونة سريع + زر Done
                 ToolbarItemGroup(placement: .keyboard) {
+                    Button {
+                        focused = false
+                    } label: {
+                        Image(systemName: "keyboard.chevron.compact.down")
+                            .font(.title3)
+                            .accessibilityLabel("Hide Keyboard")
+                    }
+
                     Spacer()
+
                     Button("Done") { focused = false }
+                        .fontWeight(.semibold)
                 }
             }
         }

@@ -23,7 +23,10 @@ struct EditEntryView: View {
     var body: some View {
         Form {
             Section("Date & Unit") {
-                DatePicker("Date", selection: Binding(get: { entry.date }, set: { entry.date = $0 }), displayedComponents: .date)
+                DatePicker("Date",
+                           selection: Binding(get: { entry.date }, set: { entry.date = $0 }),
+                           displayedComponents: .date)
+
                 Picker("Unit", selection: $unit) {
                     Text("cm").tag("cm")
                     Text("in").tag("in")
@@ -57,9 +60,20 @@ struct EditEntryView: View {
         .navigationTitle("Edit Entry")
         .onAppear { loadFromModel() }
         .toolbar {
+            // === شريط أدوات يظهر فوق الكيبورد: زر إخفاء + Done ===
             ToolbarItemGroup(placement: .keyboard) {
+                Button {
+                    focused = false
+                } label: {
+                    Image(systemName: "keyboard.chevron.compact.down")
+                        .font(.title3)
+                        .accessibilityLabel("Hide Keyboard")
+                }
+
                 Spacer()
+
                 Button("Done") { focused = false }
+                    .fontWeight(.semibold)
             }
         }
     }
@@ -84,7 +98,8 @@ struct EditEntryView: View {
     }
 
     private func parse(_ s: String) -> Double? {
-        let cleaned = s.replacingOccurrences(of: ",", with: ".")
+        let cleaned = s
+            .replacingOccurrences(of: ",", with: ".")
             .filter { "0123456789.".contains($0) }
         if cleaned.filter({ $0 == "." }).count > 1 { return nil }
         return Double(cleaned)
@@ -104,22 +119,30 @@ struct EditEntryView: View {
                             .replacingOccurrences(of: ",", with: ".")
                             .filter { "0123456789.".contains($0) }
                         // اسمح بنقطة واحدة فقط
-                        let parts = filtered.split(separator: ".", maxSplits: 2, omittingEmptySubsequences: false)
-                        let sanitized = parts.count > 2 ? parts[0] + "." + parts[1] : Substring(filtered)
+                        let parts = filtered.split(
+                            separator: ".",
+                            maxSplits: 2,
+                            omittingEmptySubsequences: false
+                        )
+                        let sanitized: Substring = parts.count > 2 ? parts[0] + "." + parts[1] : Substring(filtered)
                         text.wrappedValue = String(sanitized.prefix(8))
                     }
                 if let s = suffix {
                     Text(s).foregroundColor(.secondary)
                 }
             }
-            .padding(.horizontal, 10).padding(.vertical, 8)
-            .background(RoundedRectangle(cornerRadius: 10).stroke(Color.gray.opacity(0.35), lineWidth: 1))
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+            .background(
+                RoundedRectangle(cornerRadius: 10)
+                    .stroke(Color.gray.opacity(0.35), lineWidth: 1)
+            )
             .frame(minWidth: 140)
         }
     }
 
     private func save() {
-        entry.unit = unit
+        entry.unit       = unit
         entry.weight     = parse(weight)
         entry.chest      = parse(chest)
         entry.hips       = parse(hips)
@@ -128,7 +151,7 @@ struct EditEntryView: View {
         entry.rightArm   = parse(rightArm)
         entry.leftThigh  = parse(leftThigh)
         entry.rightThigh = parse(rightThigh)
-        entry.notes = notes.isEmpty ? nil : notes
+        entry.notes      = notes.isEmpty ? nil : notes
 
         do {
             try context.save()

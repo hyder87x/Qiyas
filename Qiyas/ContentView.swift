@@ -1,168 +1,191 @@
 import SwiftUI
 import SwiftData
 
+// MARK: - Root tabs
 struct ContentView: View {
     @State private var tab = 1 // Today هو الافتراضي
 
     var body: some View {
         TabView(selection: $tab) {
-            // Tab 0: Results (History)
+            // Results (History)
             HistoryView()
-                .tabItem {
-                    Label("Results", systemImage: "list.bullet.rectangle")
-                }
+                .tabItem { Label("Results", systemImage: "list.bullet.rectangle") }
                 .tag(0)
 
-            // Tab 1: Today (Home)
+            // Today (Home)
             TodayView()
-                .tabItem {
-                    Image(systemName: "circle.fill")
-                        .symbolRenderingMode(.monochrome)
-                    Text("Today")
-                }
+                .tabItem { Label("Today", systemImage: "circle.fill") }
                 .tag(1)
 
-            // Tab 2: User
-            UserView()
-                .tabItem {
-                    Label("User", systemImage: "person.crop.circle")
-                }
+            // ME (profile/settings)
+            MeView()
+                .tabItem { Label("ME", systemImage: "person.crop.circle") }
                 .tag(2)
         }
-        .tint(.blue) // لون التبويب المختار
+        .tint(.blue)
     }
 }
 
-// MARK: - Today (Home) screen
+// MARK: - Today Screen
 struct TodayView: View {
     @Environment(\.modelContext) private var context
-    @Query(sort: \Measurement.date, order: .reverse, animation: .default)
-    private var items: [Measurement]
 
-    @State private var weightText = ""
-    @FocusState private var focused: Bool
+    // آخر قياس محفوظ
+    @Query(sort: \Measurement.date, order: .reverse, animation: .default)
+    private var measurements: [Measurement]
+
+    // أول بروفايل (لو موجود)
+    @Query(animation: .default)
+    private var profiles: [UserProfile]
+
+    private var latest: Measurement? { measurements.first }
+    private var profile: UserProfile? { profiles.first }
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 24) {
-                Spacer(minLength: 8)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    Text("Today")
+                        .font(.largeTitle).bold()
+                        .padding(.top, 6)
 
-                // دائرة زرقاء لطيفة
-                ZStack {
-                    Circle()
-                        .fill(Color.blue.opacity(0.15))
-                        .frame(width: 160, height: 160)
-                    VStack(spacing: 6) {
-                        Text("Today")
-                            .font(.headline)
-                            .foregroundColor(.blue)
-                        Text(Date(), style: .date)
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                        if let last = items.first?.weight {
-                            Text("Last: \(String(format: "%.1f", last)) kg")
-                                .font(.footnote)
-                                .foregroundColor(.secondary)
+                    // NAVY
+                    MetricCard(
+                        title: "NAVY Body Fat",
+                        value: navyString(),
+                        hint: navyHint()
+                    )
+
+                    // BMI
+                    MetricCard(
+                        title: "BMI",
+                        value: bmiString(),
+                        hint: "Add weight + height"
+                    )
+
+                    // أزرار سريعة
+                    HStack(spacing: 16) {
+                        NavigationLink {
+                            WeeklyEntryView()
+                        } label: {
+                            Text("Weekly").frame(maxWidth: .infinity)
                         }
-                    }
-                }
+                        .buttonStyle(.bordered)
 
-                // إدخال الوزن السريع
-                VStack(spacing: 12) {
-                    HStack {
-                        Text("Weight")
-                        Spacer()
-                        HStack(spacing: 6) {
-                            TextField("", text: $weightText)
-                                .keyboardType(.decimalPad)
-                                .multilineTextAlignment(.trailing)
-                                .focused($focused)
-                                .onChange(of: weightText) { _, new in
-                                    weightText = numericFiltered(new)
-                                }
-                            Text("kg").foregroundColor(.secondary)
+                        NavigationLink {
+                            DailyEntryView()
+                        } label: {
+                            Text("Daily").frame(maxWidth: .infinity)
                         }
-                        .padding(.horizontal, 12).padding(.vertical, 10)
-                        .background(
-                            RoundedRectangle(cornerRadius: 10)
-                                .stroke(Color.gray.opacity(0.35), lineWidth: 1)
-                        )
-                        .frame(minWidth: 140)
+                        .buttonStyle(.bordered)
                     }
-
-                    Button {
-                        saveTodayWeight()
-                    } label: {
-                        Text("Log Weight")
-                            .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(weightText.isEmpty)
+                    .padding(.top, 4)
                 }
-                .padding(.horizontal, 20)
-
-                // روابط سريعة (اختياريتين)
-                HStack(spacing: 12) {
-                    NavigationLink {
-                        DailyEntryView()
-                    } label: {
-                        Label("Daily Entry", systemImage: "sun.max.fill")
-                            .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.bordered)
-
-                    NavigationLink {
-                        WeeklyEntryView()
-                    } label: {
-                        Label("Weekly Entry", systemImage: "calendar.badge.plus")
-                            .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.bordered)
-                }
-                .padding(.horizontal, 20)
-
-                Spacer()
-            }
-            .navigationTitle("Today")
-            .toolbar {
-                ToolbarItemGroup(placement: .keyboard) {
-                    Spacer()
-                    Button("Done") { focused = false }
-                }
+                .padding(.horizontal, 16)
+                .padding(.bottom, 24)
             }
         }
     }
 
-    // MARK: - Helpers
-    private func numericFiltered(_ s: String) -> String {
-        let allowed = "0123456789.,"
-        var filtered = s.filter { allowed.contains($0) }
-        filtered = filtered.replacingOccurrences(of: ",", with: ".")
-        // نقطة واحدة فقط
-        let parts = filtered.split(separator: ".", maxSplits: 2, omittingEmptySubsequences: false)
-        if parts.count > 2 {
-            filtered = parts[0] + "." + parts[1]
-        }
-        return String(filtered.prefix(8))
+    // MARK: - Calculations
+
+    private func bmiString() -> String {
+        guard
+            let w = latest?.weight,
+            let hCm = profile?.heightCm,
+            hCm > 0
+        else { return "—" }
+
+        let hM = hCm / 100.0
+        let bmi = w / (hM * hM)
+        return String(format: "%.1f", bmi)
     }
 
-    private func saveTodayWeight() {
-        guard let w = Double(weightText) else { return }
-        let today = Calendar.current.startOfDay(for: Date())
+    private func navyString() -> String {
+        guard
+            let hCm = profile?.heightCm,
+            let neck = latest?.neck,
+            let waist = latest?.waist
+        else { return "—" }
 
-        if let existing = items.first(where: {
-            Calendar.current.isDate($0.date, inSameDayAs: today)
-        }) {
-            existing.weight = w
-        } else {
-            let m = Measurement(date: today, unit: "cm", weight: w, notes: "Quick log")
-            context.insert(m)
+        // ملاحظة: في موديلك الاسم هو hips (جمع)
+        let hips = latest?.hips
+        let s = profile?.sex ?? .male
+
+        let bf = navyBodyFatPercent(
+            sex: s,
+            heightCm: hCm,
+            neckCm: neck,
+            waistCm: waist,
+            hipsCm: hips
+        )
+
+        return bf.map { String(format: "%.1f%%", $0) } ?? "—"
+    }
+
+    private func navyHint() -> String {
+        let s = profile?.sex ?? .male
+        return s == .female ? "Need: height + neck + waist + hips"
+                            : "Need: height + neck + waist"
+    }
+
+    /// معادلة Navy US
+    /// Male:   86.010*log10(waist - neck) - 70.041*log10(height) + 36.76
+    /// Female: 163.205*log10(waist + hips - neck) - 97.684*log10(height) - 78.387
+    private func navyBodyFatPercent(
+        sex: Sex,
+        heightCm: Double,
+        neckCm: Double,
+        waistCm: Double,
+        hipsCm: Double?
+    ) -> Double? {
+        // إلى إنش
+        let h = heightCm / 2.54
+        let n = neckCm / 2.54
+        let w = waistCm / 2.54
+        let hp = hipsCm.map { $0 / 2.54 }
+
+        switch sex {
+        case .male:
+            guard w > n, h > 0 else { return nil }
+            let bf = 86.010 * log10(w - n) - 70.041 * log10(h) + 36.76
+            return max(0, bf)
+        case .female:
+            guard let hips = hp, (w + hips) > n, h > 0 else { return nil }
+            let bf = 163.205 * log10(w + hips - n) - 97.684 * log10(h) - 78.387
+            return max(0, bf)
         }
+    }
+}
 
-        try? context.save()
-        focused = false
-        UIImpactFeedbackGenerator(style: .light).impactOccurred()
-        weightText = ""
+// MARK: - Small Card
+struct MetricCard: View {
+    let title: String
+    let value: String    // "—" لو غير متوفر
+    let hint: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text(title)
+                .font(.title3).bold()
+
+            Text(value)
+                .font(.system(size: 36, weight: .bold, design: .rounded))
+
+            Text(hint)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(Color(UIColor.secondarySystemBackground))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(Color.gray.opacity(0.18), lineWidth: 1)
+        )
     }
 }
 

@@ -69,9 +69,20 @@ struct WeeklyEntryView: View {
                     Button("Save") { save() }
                         .fontWeight(.semibold)
                 }
+                // ===== شريط أدوات الكيبورد: زر إخفاء + Done =====
                 ToolbarItemGroup(placement: .keyboard) {
+                    Button {
+                        focused = false
+                    } label: {
+                        Image(systemName: "keyboard.chevron.compact.down")
+                            .font(.title3)
+                            .accessibilityLabel("Hide Keyboard")
+                    }
+
                     Spacer()
+
                     Button("Done") { focused = false }
+                        .fontWeight(.semibold)
                 }
             }
         }

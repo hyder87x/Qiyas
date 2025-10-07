@@ -13,7 +13,8 @@ struct QiyasApp: App {
                 OnboardingView()
             }
         }
-        .modelContainer(for: Measurement.self)
+        // ✅ مهم: أضفنا UserProfile هنا
+        .modelContainer(for: [Measurement.self, UserProfile.self])
     }
 }
 
